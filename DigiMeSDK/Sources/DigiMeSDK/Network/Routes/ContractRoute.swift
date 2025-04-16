@@ -20,15 +20,10 @@ struct ContractRoute: Route {
     }
     
     var customHeaders: [String: String] {
-        return [:]
-    }
-
-    var pathParameters: [String] {
-        return [contractId, appId]
+        ["Authorization": "Bearer " + jwt]
     }
     
-    let appId: String
-    let contractId: String
+    let jwt: String
     let schemaVersion: String
     
     func parseResponse(data: Data, headers: [AnyHashable: Any]) throws -> ResponseType {

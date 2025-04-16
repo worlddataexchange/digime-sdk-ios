@@ -298,8 +298,15 @@ class AllFilesReader {
 	}
 	
 	private func contractTimeRangeLimits(appId: String, contractId: String, completion: @escaping (Result<TimeRangeLimits, SDKError>) -> Void) {
-		guard let contractTimeRange = self.contractsCache.firstTimeRange(for: contractId) else {
-			let route = ContractRoute(appId: appId, contractId: contractId, schemaVersion: "5.0.0")
+		guard
+            let contractTimeRange = self.contractsCache.firstTimeRange(for: contractId) else {
+            
+            guard let jwt = JWTUtility.basicRequestJWT(configuration: configuration) else {
+                completion(.failure(.errorCreatingDataRequestJwt))
+                return
+            }
+            
+            let route = ContractRoute(jwt: jwt, schemaVersion: "5.0.0")
 			apiClient.makeRequest(route) { result in
 				switch result {
 				case .success(let response):
