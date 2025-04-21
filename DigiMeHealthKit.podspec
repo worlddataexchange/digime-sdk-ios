@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
 
     s.name         	= "DigiMeHealthKit"
-    s.version      	= "5.1.0"
+    s.version      	= "5.1.1"
     s.summary      	= "digi.me iOS Consent Access SDK HealthKit Component"
     s.homepage     	= "https://github.com/digime/digime-sdk-ios"
     s.license      	= { :type => "MIT", :file => "LICENSE" }
