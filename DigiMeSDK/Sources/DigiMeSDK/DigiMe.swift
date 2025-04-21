@@ -728,29 +728,43 @@ public final class DigiMe {
 		LocalDataCache().removeRequestOfLocalData(for: contractId)
 	}
 
-    /// Get contract details.
-    /// If contract identifier is specified, then only those services relevant to the contract are retrieved, otherwise all services are retrieved.
+    /// Gets the contract details for the specified contract.
+    /// A contract is a configuration that defines the relationship between the SDK and your application.
+    /// It contains information about what data the SDK can access and what operations it can perform.
     ///
     /// - Parameters:
+    ///   - schemaVersion: The version of the contract schema to use.
+    ///   - credentials: The existing credentials for the contract.
     ///   - resultQueue: The dispatch queue which the completion block will be called on. Defaults to main dispatch queue.
     ///   - completion: Block called upon completion with either the contract object or any errors encountered
-    public func contractDetails(resultQueue: DispatchQueue = .main, completion: @escaping (Result<ContractVersion5, SDKError>) -> Void) {
-        let appId = configuration.appId
-        let contractId = configuration.contractId
-            
-        let route = ContractRoute(appId: appId, contractId: contractId, schemaVersion: "5.0.0")
-        apiClient.makeRequest(route) { result in
+    public func contractDetails(schemaVersion: String, credentials: Credentials, resultQueue: DispatchQueue = .main, completion: @escaping (Credentials, Result<ContractVersion5, SDKError>) -> Void) {
+        validateOrRefreshCredentials(credentials) { result in
             switch result {
-            case .success(let response):
-                resultQueue.async {
-                    self.certificateParser.parse(contractResponse: response) { result in
-                        completion(result)
-                    }
+            case .success(let refreshedCredentials):
+                guard let jwt = JWTUtility.basicRequestJWT(configuration: self.configuration) else {
+                    completion(refreshedCredentials, .failure(SDKError.invalidBasicRequestJwt))
+                    return
                 }
                 
+                let route = ContractRoute(jwt: jwt, schemaVersion: schemaVersion)
+                self.apiClient.makeRequest(route) { result in
+                    switch result {
+                    case .success(let response):
+                        resultQueue.async {
+                            self.certificateParser.parse(contractResponse: response) { result in
+                                completion(refreshedCredentials, result)
+                            }
+                        }
+                        
+                    case .failure(let error):
+                        resultQueue.async {
+                            completion(refreshedCredentials, .failure(error))
+                        }
+                    }
+                }
             case .failure(let error):
                 resultQueue.async {
-                    completion(.failure(error))
+                    completion(credentials, .failure(error))
                 }
             }
         }
