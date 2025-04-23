@@ -133,6 +133,9 @@ public enum SDKError: Error {
 	/// Invalid reference token request JWT
 	case invalidReferenceTokenRequestJwt
 	
+    /// Invalid reauthorize user token request JWT
+    case invalidReauthorizeUserTokenRequestJwt
+    
 	/// Invalid delete user token request JWT
 	case invalidDeleteUserTokenRequestJwt
 	
@@ -339,6 +342,9 @@ extension SDKError: CustomStringConvertible {
 		case .invalidReferenceTokenRequestJwt:
 			return "Invalid reference token request JWT"
 		
+        case .invalidReauthorizeUserTokenRequestJwt:
+            return "Invalid reauthorize user token request JWT"
+            
 		case .invalidAuthorizationRequestJwt:
 			return "Invalid authorization request JWT"
 		

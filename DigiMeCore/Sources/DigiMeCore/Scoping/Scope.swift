@@ -12,6 +12,8 @@ import Foundation
 public struct Scope: Codable {
     public let serviceGroups: [ServiceGroupType]?
     public let timeRanges: [TimeRange]?
+    public let sourceFetch: Bool?
+    public let sourceFetchFilter: SourceFetchFilter?
     
     /// Limits data retrieval to specified services or service groups and optionally to specified time range.
     /// If both service groups and time ranges are specified, then response will be limited to data matching both limits
@@ -19,17 +21,12 @@ public struct Scope: Codable {
     /// - Parameters:
     ///   - serviceGroups: Service groups (and associated services) to limit data request to
     ///   - timeRanges: Optional time range to limit data retrieval to
-    public init(serviceGroups: [ServiceGroupType], timeRanges: [TimeRange]? = nil) {
+    ///   - sourceFetch: If set to false user will be able to see only existing data, without refreshing the library. Default value is true.
+    ///   - sourceFetchFilter: Trigger account data sync only for accounts matching session scope and specified filter.
+    public init(serviceGroups: [ServiceGroupType]? = nil, timeRanges: [TimeRange]? = nil, sourceFetch: Bool = true, sourceFetchFilter: SourceFetchFilter? = nil) {
         self.serviceGroups = serviceGroups
         self.timeRanges = timeRanges
-    }
-    
-    /// Limits data retrieval to specified time range.
-    ///
-    /// - Parameters:
-    ///   - timeRanges: Time ranges to limit data retrieval to
-    public init(timeRanges: [TimeRange]) {
-        self.serviceGroups = nil
-        self.timeRanges = timeRanges
+        self.sourceFetch = sourceFetch
+        self.sourceFetchFilter = sourceFetchFilter
     }
 }

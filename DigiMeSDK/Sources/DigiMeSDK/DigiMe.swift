@@ -183,25 +183,29 @@ public final class DigiMe {
             }
         }
     }
-	
-	/// In cases where access to a service's data is revoked and you receive an error message of `511 Service Authorization Required` you can initiate the reauthentication process by requesting the re-authentication URL and directing the user to it.
-	/// - Parameters:
-	///   - accountId: Service account entity identifier.
-	///   - credentials: The existing credentials for the contract.
-	///   - resultQueue: The dispatch queue which the completion block will be called on. Defaults to main dispatch queue.
-	///   - completion: Block called upon completion with new or refreshed credentials, or any errors encountered.
-	public func reauthorizeAccount(accountId: String, credentials: Credentials, resultQueue: DispatchQueue = .main, completion: @escaping (Credentials, Result<Void, SDKError>) -> Void) {
-		validateOrRefreshCredentials(credentials) { credResult in
-			switch credResult {
-			case .success(let refreshedCredentials):
-				self.authService.requestReferenceToken(oauthToken: refreshedCredentials.token) { refTokenResult in
-					switch refTokenResult {
-					case .success(let response):
-						self.session = response.session
-						self.authService.requestAccountReference(accountId: accountId) { refAccountResult in
-							switch refAccountResult {
-							case .success(let accountRef):
-                                self.consentManager.reauthService(accountRef: accountRef.id, token: response.token) { result in
+    
+    /// In cases where access to a service's data is revoked and you receive an error message of `511 Service Authorization Required`,
+    /// you can initiate the reauthentication process by requesting the re-authentication URL and directing the user to it.
+    /// - Parameters:
+    ///   - accountId: Service account entity identifier.
+    ///   - credentials: The existing credentials for the contract.
+    ///   - locale: Preferred locale for the authorization client. If the provided locale is not supported,
+    ///     the language will fall back to the browser's locale. If the browser's locale is not supported,
+    ///     it will fall back to the default locale (en).
+    ///   - resultQueue: The dispatch queue on which the completion block will be called. Defaults to main dispatch queue.
+    ///   - completion: Block called upon completion with new or refreshed credentials, or any errors encountered.
+    public func reauthorizeAccount(accountId: String, credentials: Credentials, locale: String? = nil, resultQueue: DispatchQueue = .main, completion: @escaping (Credentials, Result<Void, SDKError>) -> Void) {
+        validateOrRefreshCredentials(credentials) { credResult in
+            switch credResult {
+            case .success(let refreshedCredentials):
+                self.authService.requestReferenceToken(oauthToken: refreshedCredentials.token) { refTokenResult in
+                    switch refTokenResult {
+                    case .success(let response):
+                        self.session = response.session
+                        self.authService.requestAccountReference(accountId: accountId) { refAccountResult in
+                            switch refAccountResult {
+                            case .success(let accountRef):
+                                self.consentManager.reauthService(accountRef: accountRef.id, token: response.token, locale: locale) { result in
                                     resultQueue.async {
                                         switch result {
                                         case .success:
@@ -210,30 +214,62 @@ public final class DigiMe {
                                             completion(refreshedCredentials, .failure(error))
                                         }
                                     }
-								}
-								
-							case .failure(let error):
-								resultQueue.async {
-									completion(refreshedCredentials, .failure(error))
-								}
-							}
-						}
-						
-					case .failure(let error):
-						resultQueue.async {
-							completion(refreshedCredentials, .failure(error))
-						}
-					}
-				}
-				
-			case .failure(let error):
-				resultQueue.async {
-					completion(credentials, .failure(error))
-				}
-			}
-		}
-	}
+                                }
+                                
+                            case .failure(let error):
+                                resultQueue.async {
+                                    completion(refreshedCredentials, .failure(error))
+                                }
+                            }
+                        }
+                        
+                    case .failure(let error):
+                        resultQueue.async {
+                            completion(refreshedCredentials, .failure(error))
+                        }
+                    }
+                }
+                
+            case .failure(let error):
+                resultQueue.async {
+                    completion(credentials, .failure(error))
+                }
+            }
+        }
+    }
 	
+    /// This is called when user receives `InvalidToken error (401 - The token (refresh_token) is invalid)`. We can use this method to get new AT/RT pair.
+    /// - Parameters:
+    ///   - credentials: The existing credentials for the contract.
+    ///   - locale: Preferred locale for the authorization client. If the provided locale is not supported,
+    ///     the language will fall back to the browser's locale. If the browser's locale is not supported,
+    ///     it will fall back to the default locale (en).
+    ///   - resultQueue: The dispatch queue which the completion block will be called on. Defaults to main dispatch queue.
+    ///   - completion: Block called upon completion with new or refreshed credentials, or any errors encountered.
+    public func reauthorize(credentials: Credentials, locale: String? = nil, resultQueue: DispatchQueue = .main, completion: @escaping (Result<Credentials, SDKError>) -> Void) {
+        self.authService.reauthoriseUser(oauthToken: credentials.token) { reauthUserResult in
+            switch reauthUserResult {
+            case .success(let response):
+                self.session = response.session
+                self.consentManager.reauthUser(token: response.token, locale: locale) { result in
+                    resultQueue.async {
+                        switch result {
+                        case .success:
+                            completion(.success((credentials)))
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
+                    }
+                }
+
+            case .failure(let error):
+                resultQueue.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
     /// Authorizes the contract to support the storing of user entered data in a digime library with store, edit and delete functionality.
     /// - Parameters:
     ///   - credentials: The existing credentials for the contract.
@@ -1395,7 +1431,7 @@ public final class DigiMe {
     
     private func refreshTokens(credentials: Credentials, completion: @escaping (Result<Credentials, SDKError>) -> Void) {
         guard credentials.token.refreshToken.isValid else {
-            return reauthorize(accessToken: credentials.token.accessToken, completion: completion)
+            return reauthorize(credentials: credentials, completion: completion)
         }
         
         authService.renewAccessToken(oauthToken: credentials.token) { result in

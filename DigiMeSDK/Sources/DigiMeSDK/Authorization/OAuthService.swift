@@ -141,6 +141,25 @@ class OAuthService {
         }
     }
     
+    func reauthoriseUser(oauthToken: OAuthToken, completion: @escaping (Result<TokenSessionResponse, SDKError>) -> Void) {
+        guard let jwt = JWTUtility.userReauthRequestJWT(configuration: configuration, accessToken: oauthToken.accessToken.value) else {
+            Logger.critical("Invalid reauth user request JWT")
+            completion(.failure(SDKError.invalidReauthorizeUserTokenRequestJwt))
+            return
+        }
+
+        apiClient.makeRequest(TokenReferenceRoute(jwt: jwt)) { [weak self] result in
+            switch result {
+            case .success(let response):
+                self?.extractReferenceCode(from: response) { result in
+                    completion(result.map { TokenSessionResponse(token: $0, session: response.session) })
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
     func deleteUser(oauthToken: OAuthToken, completion: @escaping (Result<Void, SDKError>) -> Void) {
         guard let jwt = JWTUtility.dataRequestJWT(accessToken: oauthToken.accessToken.value, configuration: configuration) else {
             Logger.critical("Invalid delete user token request JWT")

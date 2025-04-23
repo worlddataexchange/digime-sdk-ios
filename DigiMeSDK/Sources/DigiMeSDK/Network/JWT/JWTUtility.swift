@@ -69,6 +69,29 @@ enum JWTUtility {
 		}
     }
     
+    // Claims to request a user library re-authorization
+    private struct PayloadRequestUserReauthJWT: RequestClaims {
+        let accessToken: String?
+        let clientId: String
+        let codeChallenge: String
+        var codeChallengeMethod = "S256"
+        var nonce = JWTUtility.generateNonce()
+        let redirectUri: String
+        var state = JWTUtility.secureRandomHexString(length: 32)
+        var timestamp = Date()
+        
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case clientId = "client_id"
+            case codeChallenge = "code_challenge"
+            case codeChallengeMethod = "code_challenge_method"
+            case nonce
+            case redirectUri = "redirect_uri"
+            case state
+            case timestamp
+        }
+    }
+    
     // Claims for pre-authorization code response
     private struct PayloadResponsePreauthJWT: JWTClaims {
         let preAuthCode: String
@@ -206,6 +229,27 @@ enum JWTUtility {
             
             // NB! this redirect schema must exist in the contract definition, otherwise preauth request will fail!
 			redirectUri: configuration.redirectUri + Action.auth.rawValue
+        )
+        
+        return createRequestJWT(claims: claims, configuration: configuration)
+    }
+    
+    /// Creates request JWT which can be used to generate new credentials when refresh token has expired
+    ///
+    /// - Parameters:
+    ///   - configuration: this SDK's instance configuration
+    ///   - accessToken: An existing access token
+    static func userReauthRequestJWT(configuration: Configuration, accessToken: String?) -> String? {
+        let randomBytes = Crypto.secureRandomData(length: 32)
+        let codeVerifier = randomBytes.base64URLEncodedString()
+        let codeChallenge = Crypto.sha256Hash(from: codeVerifier).base64URLEncodedString()
+        saveCodeVerifier(codeVerifier, configuration: configuration)
+        
+        let claims = PayloadRequestUserReauthJWT(
+            accessToken: accessToken,
+            clientId: configuration.clientId,
+            codeChallenge: codeChallenge,
+            redirectUri: configuration.redirectUri + Action.auth.rawValue
         )
         
         return createRequestJWT(claims: claims, configuration: configuration)

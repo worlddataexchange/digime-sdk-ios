@@ -24,6 +24,7 @@ public class FilePersistentStorage {
         return url
     }
 
+    @discardableResult
     public func store(data: Data, fileName: String) -> URL? {
         guard
             !data.isEmpty,

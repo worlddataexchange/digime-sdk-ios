@@ -157,10 +157,10 @@ final class ConsentManager: NSObject {
         open(url: components.url!)
     }
     
-	func reauthService(accountRef: String, token: String, completion: @escaping ((Result<Void, SDKError>) -> Void)) {
+    func reauthService(accountRef: String, token: String, locale: String? = nil, completion: @escaping ((Result<Void, SDKError>) -> Void)) {
 		guard Thread.current.isMainThread else {
 			DispatchQueue.main.async {
-				self.reauthService(accountRef: accountRef, token: token, completion: completion)
+                self.reauthService(accountRef: accountRef, token: token, locale: locale, completion: completion)
 			}
 			return
 		}
@@ -170,13 +170,43 @@ final class ConsentManager: NSObject {
 		let baseUrl = self.configuration.baseUrl ?? APIConfig.baseUrl
 		var components = URLComponents(string: "\(baseUrl)/apps/saas/reauthorize")!
 		
+        let effectiveLocale = locale ?? Locale.current.languageCode ?? "en"
+        
 		components.percentEncodedQueryItems = [
 			URLQueryItem(name: "code", value: token),
 			URLQueryItem(name: "accountRef", value: accountRef),
+            URLQueryItem(name: "locale", value: effectiveLocale),
 		]
 		
 		open(url: components.url!)
 	}
+    
+    func reauthUser(token: String, locale: String? = nil, triggerQuery: Bool? = nil, completion: @escaping ((Result<Void, SDKError>) -> Void)) {
+        guard Thread.current.isMainThread else {
+            DispatchQueue.main.async {
+                self.reauthUser(token: token, locale: locale, completion: completion)
+            }
+            return
+        }
+        
+        addServiceCompletion = completion
+        CallbackService.shared().setCallbackHandler(self)
+        let baseUrl = self.configuration.baseUrl ?? APIConfig.baseUrl
+        var components = URLComponents(string: "\(baseUrl)/apps/saas/user-reauth")!
+        
+        var queryItems = [URLQueryItem(name: "code", value: token)]
+
+        let effectiveLocale = locale ?? Locale.current.languageCode ?? "en"
+        queryItems.append(URLQueryItem(name: "lng", value: effectiveLocale))
+
+        if let triggerQuery = triggerQuery {
+            queryItems.append(URLQueryItem(name: "triggerQuery", value: triggerQuery.description))
+        }
+
+        components.percentEncodedQueryItems = queryItems
+
+        open(url: components.url!)
+    }
 	
     // MARK: - Private
     
